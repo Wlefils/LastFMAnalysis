@@ -9,7 +9,7 @@ The end goal of this project was to create an animated bar chart displaying how 
 
 Special thanks to Tom McNamara and his blog post [here](https://www.r-bloggers.com/2020/04/learning-gganimate-with-the-lastfm-api/), which inspired me to start this project.
 
-### Data Acquistion
+### Data Acquisition
 
 The first step was to use an R package called [scrobbler](https://cran.r-project.org/web/packages/scrobbler/index.html) to retrieve my personal data. To do this, I had to go to Last.FM's developer site and request an API key. Using the **download_scrobbles()** function with this package, I downloaded my listening history as a data frame with the following code (replace "YourUsername" etc with your actual details if you'd like to replicate this project).
 
@@ -39,7 +39,7 @@ The next step was to examine the current state of the data using the head(functi
 ![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/5de8d6dd-228b-4d3a-aa44-9ef44490d5a8)
 
 
-At this time, I was focused on setting up the fields to suit my needs. The date column initially had unncessary values (for this analysis) of time and day, whereas I was only interested in grouping my data by month. The best way I know of to do this is to create a variable in the dataframe that contains the month. First, I wanted to clean up the date column by removing the timestamp. I did this with the lubridate package. I also used lubridate to change the date column to the date data type.
+At this time, I was focused on setting up the fields to suit my needs. The date column initially had unnecessary values (for this analysis) of time and day, whereas I was only interested in grouping my data by month. The best way I know of to do this is to create a variable in the dataframe that contains the month. First, I wanted to clean up the date column by removing the timestamp. I did this with the lubridate package. I also used lubridate to change the date column to the date data type.
 
 ```R
 # remove time from the output
@@ -67,7 +67,7 @@ lastFM2 <- lastFM2 %>% group_by(artist) %>%
   mutate(count=row_number())
 ```
 
-After using the **head()** function once again, I verified to see that I'd successfully added the Count column to the dataframe. Ths column served as the running total for tracking the number of plays each artist had at any given point in time. To demonstrate this more clearly, I used the **head()** function to call a specific artist, which returned a list of their songs in order of when they were listened to, with the the running total increasing by one for each additional scrobble. 
+After using the **head()** function once again, I verified to see that I'd successfully added the Count column to the dataframe. This column served as the running total for tracking the number of plays each artist had at any given point in time. To demonstrate this more clearly, I used the **head()** function to call a specific artist, which returned a list of their songs in order of when they were listened to, with the the running total increasing by one for each additional scrobble. 
 
 ![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/fd54e2cc-effc-4000-aeaa-6db849e1e2c8)
 
@@ -103,7 +103,7 @@ lastFMGrouped <- lastFMGrouped[order(lastFMGrouped$monthID),]
 
 This is when I ran into a major issue. The above iiamge shows a glimpse of the total scrobbles for Carly Rae Jepsen during a several month time period. I didn't listen to CRJ in January or February of 2017 (monthID 13 and 14, respectively). If I created the animated bar chart with the data as it was here, CRJ would be present in December of 2016, but disappear completely for the next two months, before reappearing in March of 2017. That's obviously not what I was looking for. My solution to this involved a multi-step process:
 
-First, I made a list of each artist, date, and monthID inthe existing dataset and combined them to create a new dataframe. The goal here was to make an entry for each artist for every month. Since my data contained 5,330 artists across 83 months, the new dataframe was comprised of 458,990 rows (5,330 * 83).
+First, I made a list of each artist, date, and monthID in the existing dataset and combined them to create a new dataframe. The goal here was to make an entry for each artist for every month. Since my data contained 5,330 artists across 83 months, the new dataframe was comprised of 458,990 rows (5,330 * 83).
 
 ```R
 #  Find every artist name and all monthIDs and dates
@@ -138,7 +138,7 @@ write.csv(allArtistsAllDates, file = "allArtistsAllDates.csv")
 ```
 
 ## Data Cleaning in Excel
-With the data in Excel, it was time to do some further cleaning and processing. I created a column called "maxcount" to calculate the highest number of plays each artsit had up to that date. The formula I used for that calculation is below
+With the data in Excel, it was time to do some further cleaning and processing. I created a column called "maxcount" to calculate the highest number of plays each artist had up to that date. The formula I used for that calculation is below
 ```Excel
 = IF(B3=B2, IF(E3=E2, F2,MAX(E2:E3)),0)
 ```
