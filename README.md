@@ -39,7 +39,6 @@ The next step was to examine the current state of the data using the head(functi
 ![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/5de8d6dd-228b-4d3a-aa44-9ef44490d5a8)
 
 
-
 At this time, I was focused on setting up the fields to suit my needs. The date column initially had unncessary values (for this analysis) of time and day, whereas I was only interested in grouping my data by month. The best way I know of to do this is to create a variable in the dataframe that contains the month. First, I wanted to clean up the date column by removing the timestamp. I did this with the lubridate package. I also used lubridate to change the date column to the date data type.
 
 ```R
@@ -74,7 +73,6 @@ After using the **head()** function once again, I verified to see that I'd succe
 
 
 
-
 At this point, I split the date into year and month, to facilitate data processing.
 
 ```R
@@ -101,9 +99,58 @@ lastFMGrouped <- group_by(lastFM2, artist, monthID, date) %>%
 lastFMGrouped <- lastFMGrouped[order(lastFMGrouped$monthID),]
 ```
 
-
-
 ![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/4e43451a-93d2-4c54-9c20-31aa4ab81e7c)
+
+This is when I ran into a major issue. The above iiamge shows a glimpse of the total scrobbles for Carly Rae Jepsen during a several month time period. I didn't listen to CRJ in January or February of 2017 (monthID 13 and 14, respectively). If I created the animated bar chart with the data as it was here, CRJ would be present in December of 2016, but disappear completely for the next two months, before reappearing in March of 2017. That's obviously not what I was looking for. My solution to this involved a multi-step process:
+
+First, I made a list of each artist, date, and monthID inthe existing dataset and combined them to create a new dataframe. The goal here was to make an entry for each artist for every month. Since my data contained 5,330 artists across 83 months, the new dataframe was comprised of 458,990 rows (5,330 * 83).
+
+```R
+#  Find every artist name and all monthIDs and dates
+allArtists <- unique(lastFMGrouped$artist)
+allMonthIDs <- unique(lastFMGrouped$monthID)
+allDates <- unique(lastFMGrouped$date)
+
+# Find the length for each of these and determine row numbers in a new dataframe.
+> length(allArtists)
+> length(allMonthIDs)
+> length(allDates)
+
+# Create a new dataframe with all artists, inputting 0 plays for each month
+newDF <- data.frame(artist = rep(allArtists, 83),          # add every artist (length(allArtists)) times 
+                    monthID = rep(allMonthIDs, 5530),       # add every monthID (length(allArtists)) times
+                    date = rep(allDates, 5530),             # add every date (length(allArtists)) times
+                    count = rep(0,458990))                  # set count = 0 for all of these
+```
+
+With this completed, the next step was to combine this new dataframe and lastFMGrouped. I used dplyr's **full_join()** function to do so. Then I grouped the data again (as was done previously) and exported it to a csv for further cleaning in Excel.
+
+```R
+# Combining this with grouped dataframe
+allArtistsAllDates <- full_join(lastFMGrouped, newDF)
+
+# Grouping by artist and month/date again
+allArtistsAllDates <- group_by(allArtistsAllDates, artist, monthID, date, .drop = F) %>%
+  summarise(count = max(count))
+  
+# Exporting to csv
+write.csv(allArtistsAllDates, file = "allArtistsAllDates.csv")
+```
+
+## Data Cleaning in Excel
+With the data in Excel, it was time to do some further cleaning and processing. I created a column called "maxcount" to calculate the highest number of plays each artsit had up to that date. The formula I used for that calculation is below
+```Excel
+= IF(B3=B2, IF(E3=E2, F2,MAX(E2:E3)),0)
+```
+
+I'll explain what each part of this formula does, step by step:
+```
+=IF(B3=B2,   # If the artist name does not change
+IF (E3 = E2, # Identify if the count column increased from the previous value
+F2,          # If it has not changed, retain the previous maximum value
+MAX(E2:E3)   # If it has changed, adjust it to the higher value
+),0)         # If the artist name changes, reset to 0
+```
 
 
 My data required a significant amount of additional cleaning and processing to make it usable. I ran into a few major issues. The first was that I listen to a lot of non-English language music, particularly Korean and Japanese artists. Trying to retrieve artist names, track titles, and album titles with a mix of kanji, katakana, and Hangul proved quite challenging.
