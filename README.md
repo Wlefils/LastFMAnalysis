@@ -1,2 +1,133 @@
-# LastFMAnalysis
-Using R and the Last.FM API to discover and visualize trends in my personal music listening history.
+# Project Overview
+I love listening to music. I’ve listened to a lot of music over the years, and much of this listening history has been tracked by apps like Spotify. I always get excited for Spotify Year in Review, but I didn’t want to wait until the end of the year. Spotify’s Year in Review is also inherently limited in that it doesn’t allow you to compare different time frames, rather than simply the last year. Thankfully, I’ve also been using Last.fm for several years, and racked up tens of thousands of “scrobbles” (another word for “plays” or “listens”) on that platform. I decided to play around with the Last.fm API and turn my personal music listening history into an analytics project.
+
+The end goal of this project was to create an animated bar chart displaying how my top 20 most listened to artists shifted and changed over time. Specifically, I was looking at data from May 2016 (when I created my Last.fm account) until December 2022.
+
+### Tools used:
+* RStudio (ggplot2, gganimate, tidyr, dplyr, lubridate, and more)
+* Excel
+
+Special thanks to Tom McNamara and his blog post [here](https://www.r-bloggers.com/2020/04/learning-gganimate-with-the-lastfm-api/), which inspired me to start this project.
+
+### Data Acquistion
+
+The first step was to use an R package called [scrobbler](https://cran.r-project.org/web/packages/scrobbler/index.html) to retrieve my personal data. To do this, I had to go to Last.FM's developer site and request an API key. Using the **download_scrobbles()** function with this package, I downloaded my listening history as a data frame with the following code (replace "YourUsername" etc with your actual details if you'd like to replicate this project).
+
+```R
+# Pulling my listening data from the API
+username <- "YourUsername"
+apiKey <- "YourAPIkey"
+apiSecret <- "YourAPIsecret"
+lastFM <- download_scrobbles(username = username, api_key = apiKey)
+```
+Because I had over six years’ worth of listening data (over 72,000 scrobbles), it took a while to download. I made sure to save my data frame to avoid having to repeat this step if I cleared my environment later (which I did, so I was glad to have this backup point). This is the code I used for this step:
+```R
+# Saving the file to avoid redownloading later
+write.csv(lastFM, file = "lastFMfromAPI.csv")
+```
+
+### Data Cleaning
+Last.fm has a lot of additional data for each scrobble that wasn’t necessary for the scope of this project. To make the dataset a bit easier to work with, I subset it to keep only the specific variables I planned on using: song title, artist name, album title, and the date I listened to the track.
+
+```R
+# subset to only the relevant data - song, artist, album, date
+lastFM2 <- lastFM[,c(2,4,6,9)]
+```
+
+The next step was to examine the current state of the data using the head(function), as shown below.
+
+![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/5de8d6dd-228b-4d3a-aa44-9ef44490d5a8)
+
+
+
+At this time, I was focused on setting up the fields to suit my needs. The date column initially had unncessary values (for this analysis) of time and day, whereas I was only interested in grouping my data by month. The best way I know of to do this is to create a variable in the dataframe that contains the month. First, I wanted to clean up the date column by removing the timestamp. I did this with the lubridate package. I also used lubridate to change the date column to the date data type.
+
+```R
+# remove time from the output
+lastFM2$date <- gsub(",.*","",lastFM2$date)    # regex - removes everything after a comma (inclusive of comma)
+```
+
+```R
+# Converting the data type to date
+lastFM2$date <- lubridate::dmy(lastFM2$date) #dmy as date is ordered Day/Month/year
+```
+
+Next, I sorted the data by the newly improved date column.
+
+```R
+# Order from oldest to newest
+lastFM2 <- lastFM2[order(lastFM2$date),]
+```
+
+ To add the running total, I used the **group_by()** and **mutate()** functions from the dplyr package (this is why it was important to ensure the data was in the right order).
+
+```R
+#Let's add the running total number of scrobbles for each artist
+library(dplyr)
+lastFM2 <- lastFM2 %>% group_by(artist) %>%
+  mutate(count=row_number())
+```
+
+After using the **head()** function once again, I verified to see that I'd successfully added the Count column to the dataframe. Ths column served as the running total for tracking the number of plays each artist had at any given point in time. To demonstrate this more clearly, I used the **head()** function to call a specific artist, which returned a list of their songs in order of when they were listened to, with the the running total increasing by one for each additional scrobble. 
+
+![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/fd54e2cc-effc-4000-aeaa-6db849e1e2c8)
+
+
+
+
+At this point, I split the date into year and month, to facilitate data processing.
+
+```R
+# Time to split the date into separate year and month columns
+lastFM2$year <- year(lastFM2$date)
+lastFM2$month <- month(lastFM2$date)
+```
+
+The main reason to split the date up like this is to easily create a new column called monthID. This is what allowed me to differentiate between the same month in different years (e.g., May 2016 vs May 2017). Without doing this, all months of the same name would be the same. Adding the monthID column resolved this by incrementing over time. This is also a critical component in the animated bar chart at the end.
+
+```R
+# Add monthID column so same month in different years has unique identifier
+lastFM2$monthID <- lastFM2$month + ((lastFM2$year - 2016)*12)
+```
+```R
+# Change date to remove day variable
+lastFM2$date <- format(lastFM2$date, format="%m-%y")
+
+# Grouped by month
+lastFMGrouped <- group_by(lastFM2, artist, monthID, date) %>%
+  summarise(count = max(count))
+
+# Order the grouped dataframe in chronologicall order
+lastFMGrouped <- lastFMGrouped[order(lastFMGrouped$monthID),]
+```
+
+
+
+![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/4e43451a-93d2-4c54-9c20-31aa4ab81e7c)
+
+
+My data required a significant amount of additional cleaning and processing to make it usable. I ran into a few major issues. The first was that I listen to a lot of non-English language music, particularly Korean and Japanese artists. Trying to retrieve artist names, track titles, and album titles with a mix of kanji, katakana, and Hangul proved quite challenging.
+
+Additionally, I listen to a lot music on YouTube. I downloaded an extension several months prior to this project that automatically scrobbled YouTube videos. The extension was useful but had issues of its own. For one thing, it resulted in a lot of false positives – it would frequently mistake non-music content for songs. It also scrobbled every “chapter” in a video with that feature as its own track, which added a lot of extra plays for supposed songs that were really just lengthy podcasts, tutorials, or other content. While these problems made the overall dataset less clean, they didn’t directly impact the limited scope of this project, as none of the false positives would have an affect on my top 20 most listened artists. However, a similar issue that did have material impact on the project was that the extension would often mix up artist and song titles (reversing them or concatenating them inappropriately). While Spotify will sometimes have multiple variants of one track (in the cases of featured artists or remixes), on YouTube, there are often numerous different versions of a track: music videos, lyric videos, audio-only versions, live performances, and, in the case of K-pop and J-pop, fan translations and line distribution videos. All of these would be scrobbled separately, and often times the artist would be misidentified (either swapping the track for the artist or using a different string in the video’s title as the artist name). There wasn’t an easy way around this due to the myriad of different errors. It was difficult to determine the exact scope of the problem, but I knew it must have affected thousands of scrobbles. I opted to identify any artists in my top 50 most played according to Last.fm (thus basing it off the unclean version of the data from the API) and look for errors related to any of their top 20 songs. 
+
+<img width="510" alt="Find_and_Replace_GG" src="https://github.com/Wlefils/LastFMAnalysis/assets/98787088/2a1ab4be-da96-43c5-b281-4164ed3f0107">
+
+
+For example, Girls’ Generation (aka SNSD) is one of my top 50 most listened to artists. Due to this group being commonly referred to by several different name variants, I knew there would be a large number of unattributed scrobbles that rightfully belonged to them. I found the character string that corresponded to Girls’ Generation and used Excel’s Find and Replace function to properly attribute and standardize dozens of plays to them. 
+In the same vein, K-pop music videos are frequently titled according to the following naming scheme “SONG NAME M/V”, with “M/V” being an abbreviation for “music video”. I had over 300 scrobbles with “M/V” in the title, and these were often attributed to an incorrect artist  (such as “Official” or something along those lines), but I manually corrected these problems.
+
+<img width="617" alt="Find_and_Replace_MV" src="https://github.com/Wlefils/LastFMAnalysis/assets/98787088/9aae34bd-7aa7-45f4-a3c4-c8a63138b7ba">
+
+
+One of the more difficult situations was for artists whose name, album titles, and track names were all originally in katakana or kanji. When imported into Excel, they weren’t properly displayed, which made it difficult to determine which artist these scrobbles belonged to. In most cases, these artists had some song titles that I could identify (due to English characters), and then I was able to use Find and Replace to change their artist name to a single, standardized, English version. There were a few instances where I was forced to crawl through my listening history on the Last.fm website to get more information (like album art) or use Google Translate to identify the artist properly. I created a pivot table in Excel for all artists whose names suffered from this issue, and manually corrected as many as possible.
+
+![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/09f59c74-ebed-49b5-aab2-b123f629ac33)
+
+
+Ultimately, I was satisfied with the data cleaning I was able to achieve via these methods. While not every row of data was completely cleaned, I was confident that I’d rectified the errors material to this project. It simply wouldn’t have been practical to manually clean every row of data, and wouldn’t have materially impacted the final result.
+
+
+https://github.com/Wlefils/LastFMAnalysis/assets/98787088/451a32b5-018c-4e74-b55e-cb6cb08e922c
+
+
+
