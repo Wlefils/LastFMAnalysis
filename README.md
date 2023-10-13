@@ -1,11 +1,11 @@
 # Project Overview
-I love listening to music. I’ve listened to a lot of music over the years, and much of this listening history has been tracked by apps like Spotify. I always get excited for Spotify Year in Review, but I didn’t want to wait until the end of the year. Spotify’s Year in Review is also inherently limited in that it doesn’t allow you to compare different time frames, rather than simply the last year. Thankfully, I’ve also been using Last.fm for several years, and racked up tens of thousands of “scrobbles” (another word for “plays” or “listens”) on that platform. I decided to play around with the Last.fm API and turn my personal music listening history into an analytics project.
+I love listening to music. I’ve listened to a lot of music over the years, and much of this listening history has been tracked by apps like Spotify. I always get excited for Spotify Year in Review, but I didn’t want to wait until the end of the year. Spotify’s Year in Review is also inherently limited in that it doesn’t allow you to compare different time frames, rather than simply the last year. Thankfully, I’ve also been using Last.fm for several years, and racked up tens of thousands of “scrobbles” (another word for “plays” or “listens”) on that platform. I decided to play around with the **Last.FM API** and turn my personal music listening history into an analytics project.
 
 The end goal of this project was to create an animated bar chart displaying how my top 20 most listened to artists shifted and changed over time. Specifically, I was looking at data from May 2016 (when I created my Last.fm account) until December 2022.
 
 ### Tools used:
-* RStudio (ggplot2, gganimate, tidyr, dplyr, lubridate, and more)
-* Excel
+* **RStudio** (ggplot2, gganimate, tidyr, dplyr, lubridate, and more)
+* **Excel**
 
 Special thanks to Tom McNamara and his blog post [here](https://www.r-bloggers.com/2020/04/learning-gganimate-with-the-lastfm-api/), which inspired me to start this project.
 
@@ -138,10 +138,13 @@ write.csv(allArtistsAllDates, file = "allArtistsAllDates.csv")
 ```
 
 ## Data Cleaning in Excel
+
+### Initial Formatting
 With the data in Excel, it was time to do some further cleaning and processing. I created a column called "maxcount" to calculate the highest number of plays each artist had up to that date. The formula I used for that calculation is below
 ```Excel
 = IF(B3=B2, IF(E3=E2, F2,MAX(E2:E3)),0)
 ```
+![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/52f6873b-bde2-4b91-b5fa-08c409fbed64)
 
 I'll explain what each part of this formula does, step by step:
 ```
@@ -152,26 +155,41 @@ MAX(E2:E3)   # If it has changed, adjust it to the higher value
 ),0)         # If the artist name changes, reset to 0
 ```
 
+Note that in the screenshot above the date column is shown as 16-May, 16-Jun, and so on. The date was formatted improperly as dd/mm. This is because the actual values entered are 05/16 and 06/16, so Excel assumed this particular date format. To correct this, I had to use a simple =DATE formula. In cell G2, I used the following formula (and double clicked the fill handle to fill every row with it):
 
-My data required a significant amount of additional cleaning and processing to make it usable. I ran into a few major issues. The first was that I listen to a lot of non-English language music, particularly Korean and Japanese artists. Trying to retrieve artist names, track titles, and album titles with a mix of kanji, katakana, and Hangul proved quite challenging.
+```
+=DATE(2016, C2, 1) 
+```
 
-Additionally, I listen to a lot music on YouTube. I downloaded an extension several months prior to this project that automatically scrobbled YouTube videos. The extension was useful but had issues of its own. For one thing, it resulted in a lot of false positives – it would frequently mistake non-music content for songs. It also scrobbled every “chapter” in a video with that feature as its own track, which added a lot of extra plays for supposed songs that were really just lengthy podcasts, tutorials, or other content. While these problems made the overall dataset less clean, they didn’t directly impact the limited scope of this project, as none of the false positives would have an affect on my top 20 most listened artists. However, a similar issue that did have material impact on the project was that the extension would often mix up artist and song titles (reversing them or concatenating them inappropriately). While Spotify will sometimes have multiple variants of one track (in the cases of featured artists or remixes), on YouTube, there are often numerous different versions of a track: music videos, lyric videos, audio-only versions, live performances, and, in the case of K-pop and J-pop, fan translations and line distribution videos. All of these would be scrobbled separately, and often times the artist would be misidentified (either swapping the track for the artist or using a different string in the video’s title as the artist name). There wasn’t an easy way around this due to the myriad of different errors. It was difficult to determine the exact scope of the problem, but I knew it must have affected thousands of scrobbles. I opted to identify any artists in my top 50 most played according to Last.fm (thus basing it off the unclean version of the data from the API) and look for errors related to any of their top 20 songs. 
+This forumla formats the date in YMD format, and prints a date value that is the first day of each month of 2016, based on the monthID. I then copy and pasted this column (as values) in column D (date) to format the dates as needed. I also deleted the F column after I was done to ensure there were no empty or null values when I imported it back into R.
+
+
+### Removing Excess Rows
+
+At this stage, my file had over 500,000 rows, and I wanted to make it a bit smaller. Many of the rows were actually unnecessary - artists didn't need a row with a count of 0 in months before they received their first play. For example, I didn't listen to Twice until the 33rd monthID; I didn't need to retain the nearly 30 rows of Twice with a count of zero, I only wanted the rows where the count column was at least 1. My method of doing this was to filter the data to show rows with a maxcount of 0 and then delete them. Deleting hundreds of thousands of rows made my Excel freeze for a few minutes, but it did eventually complete this task - you may have different results with a more powerful PC. This reduced the number of rows by about two-thirds. Then, I turned off my filter and began the most tedious (but critically important) portion of the data cleaning process.
+
+
+### Additional Cleaning Steps
+My data required a significant amount of additional cleaning and processing before taking it back into R and creating the visualization. I ran into a few major issues. The first was that I listen to a lot of non-English language music, particularly Korean and Japanese artists. Trying to retrieve artist names, track titles, and album titles with a mix of kanji, katakana, hiragana, and Hangul proved quite challenging. When imported into Excel, they weren’t properly displayed, which often made it difficult to determine which artist these scrobbles belonged to. In most cases, these artists had some song titles that I could identify (due to English characters). In these instances, I was able to use Find and Replace to change their artist name to a single, standardized, English version. There were a few situations where I was forced to trawl through my listening history on the Last.FM website to get more information (like album art) or use Google Translate to identify the artist properly. I created a pivot table in Excel for all artists whose names suffered from this issue, and manually corrected as many as possible.
+
+![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/09f59c74-ebed-49b5-aab2-b123f629ac33)
+
+A second issue stemmed from my modality of listening to music. While Spotify has a native feature for linking your listening history to your Last.FM account, I also listen to a lot music on YouTube. I had downloaded an extension several months prior to this project that automatically scrobbled YouTube videos. The extension was useful but had issues of its own. The main problem with the extension is that it resulted in a lot of false positives – it would frequently mistake non-music content for songs. It also scrobbled every “chapter” in a video as its own track, which added a lot of extra plays for supposed songs that were just lengthy podcasts, tutorials, or other content. While these problems made the overall dataset less clean, they didn’t directly impact the limited scope of this project, as none of the false positives had an affect on my top 20 most listened artists. However, a similar issue that did have material impact on the project was that the extension would often mix up artist and song titles (reversing them or concatenating them inappropriately). While Spotify will sometimes have multiple variants of one track (in the cases of featured artists or remixes), on YouTube, there are often numerous different versions of a track: music videos, lyric videos, audio-only versions, live performances, and, in the case of K-pop and J-pop, fan translations and line distribution videos. All of these would be scrobbled separately, and often times the artist would be misidentified (either swapping the track for the artist or using a different string in the video’s title as the artist name). There wasn’t an easy way around this due to the myriad of different errors. It was difficult to determine the exact scope of the problem, but I knew it must have affected thousands of scrobbles. I opted to identify any artists in my top 50 most played according to Last.fm (thus basing it off the unclean version of the data from the API) and look for errors related to any of their top 20 songs. 
 
 <img width="510" alt="Find_and_Replace_GG" src="https://github.com/Wlefils/LastFMAnalysis/assets/98787088/2a1ab4be-da96-43c5-b281-4164ed3f0107">
 
+For example, Girls’ Generation (aka SNSD) is one of my top 50 most listened to artists (but ultimately not in my top 20). Due to this group being commonly referred to by several different name variants, I knew there would be a large number of unattributed scrobbles that rightfully belonged to them. I found the character string that corresponded to Girls’ Generation and used Excel’s Find and Replace function to properly attribute and standardize dozens of plays to them. 
 
-For example, Girls’ Generation (aka SNSD) is one of my top 50 most listened to artists. Due to this group being commonly referred to by several different name variants, I knew there would be a large number of unattributed scrobbles that rightfully belonged to them. I found the character string that corresponded to Girls’ Generation and used Excel’s Find and Replace function to properly attribute and standardize dozens of plays to them. 
 In the same vein, K-pop music videos are frequently titled according to the following naming scheme “SONG NAME M/V”, with “M/V” being an abbreviation for “music video”. I had over 300 scrobbles with “M/V” in the title, and these were often attributed to an incorrect artist  (such as “Official” or something along those lines), but I manually corrected these problems.
 
 <img width="617" alt="Find_and_Replace_MV" src="https://github.com/Wlefils/LastFMAnalysis/assets/98787088/9aae34bd-7aa7-45f4-a3c4-c8a63138b7ba">
 
+Ultimately, I was satisfied with the data cleaning I was able to achieve via these methods. While not every row of data was completely cleaned, I was confident that I’d rectified the errors material to this project. It simply wouldn’t have been practical to manually clean every row of data, and wouldn’t have materially impacted the final result. 
 
-One of the more difficult situations was for artists whose name, album titles, and track names were all originally in katakana or kanji. When imported into Excel, they weren’t properly displayed, which made it difficult to determine which artist these scrobbles belonged to. In most cases, these artists had some song titles that I could identify (due to English characters), and then I was able to use Find and Replace to change their artist name to a single, standardized, English version. There were a few instances where I was forced to crawl through my listening history on the Last.fm website to get more information (like album art) or use Google Translate to identify the artist properly. I created a pivot table in Excel for all artists whose names suffered from this issue, and manually corrected as many as possible.
+After completing the cleaning, it was time to bring the data back into R and move forward with the visualization process.
 
-![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/09f59c74-ebed-49b5-aab2-b123f629ac33)
+## Finalizing in R
 
-
-Ultimately, I was satisfied with the data cleaning I was able to achieve via these methods. While not every row of data was completely cleaned, I was confident that I’d rectified the errors material to this project. It simply wouldn’t have been practical to manually clean every row of data, and wouldn’t have materially impacted the final result.
 
 
 https://github.com/Wlefils/LastFMAnalysis/assets/98787088/451a32b5-018c-4e74-b55e-cb6cb08e922c
