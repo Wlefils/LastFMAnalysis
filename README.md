@@ -190,9 +190,105 @@ After completing the cleaning, it was time to bring the data back into R and mov
 
 ## Finalizing in R
 
+At this stage, I read the cleaned csv file back into R and created a table to display the top 20 most played artists for each month. A key point to note here is that this table uses the previously calculated running total, so it is displaying the Top 20 Most Played Artists up to that point, not the Top 20 Most Played Artists during a specific month. 
 
+```R
+# loading in cleaned and edited CSV from Excel
+lastFMGrouped2 <- read.csv(file = "cleanedGrouped.csv", stringsAsFactors = F)
+
+# Creating a table for the plot
+# Retrieves the Top 20 Most Played Artists each month and adds a ranking column
+lastFmTable <- lastFMGrouped2 %>%
+  group_by(monthID) %>%
+  mutate(rank = min_rank(-maxcount) *1) %>%       # multiply by 1 to change type to numeric (from integer) - This makes it so gganimates places it in between integer places when animated.
+  filter(rank <= 10) %>%
+  ungroup()
+```
+
+I also added a rank column to determine each artist's place in the top 20 for any given month; this served as the x-variable for the plot. Then, I reordered the dataframe by MonthID once more.
+```R
+#Reordering by month one more time
+lastFmTable <- lastFmTable[order(lastFmTable$monthID),]
+```
+
+There was some additional adjustment necessary. I added another column called ordering, which was the inverse of the rank variable (i.e., where rank = 20, order = 1 and where rank = 19 ordering = 2). I also have the full code for the project here for more information on how everything was done. Many of the artist names in my Top 20 were too long and often overlapped each other, especially when the bars were moving around so quickly. To alleviate this, I used the **str_wrap** function from the **stringr** package. Another way to work around this would be to manually add line breaks for specific artists using the **gsub** function.
+
+```R
+# Adding the Ordering column - inverse of rank column
+# Use ggplot(aes(rank, ...)) for biggest value at left
+scrobblesTable <- lastFmTable %>%
+  group_by(monthID) %>%
+  mutate(ordering = min_rank(maxcount) * 1.0) %>%
+  ungroup()
+```
+
+Below is the final code for the ggplot and the moving bar chart.
+```R
+plot <- scrobblesTable %>%
+    ggplot(aes(ordering,
+               group = artist)) +
+    geom_tile(aes(y = maxcount/2,
+                  height = maxcount,
+                  width = 0.5,
+                  fill = artist),
+              alpha = 0.9,
+              colour = "Black",
+              size = 0.75) +
+    # text on top of the bars
+    geom_text(aes(y = maxcount, label = str_wrap(artist, width = 10)), size = 8,
+              vjust = -0.5) +
+    # label displaying the Date in the top left corner
+    geom_label(aes(x=1.5,
+                   y=4000,
+                   label=date),
+               size=12,
+               color = 'black') +
+    coord_cartesian(xlim = c(min(scrobblesTable$ordering) -1,max(scrobblesTable$ordering) +1),
+    ylim = c(0, 1.1 * max(scrobblesTable$maxcount)),
+    clip = "off",
+    expand = TRUE) +
+    labs(title = 'My most played artists over time.',
+         subtitle = "My top LastFM artists from May 2016 through December 2022.",
+         caption = '\n \n\nSource: LastFM | plot by Will LeFils',
+         x = '',
+         y = '') +
+    theme(
+        plot.title = element_text(size = 26),
+        plot.subtitle = element_text(size = 20),
+        plot.caption = element_text(size = 20),
+        axis.ticks.x = element_blank(),
+        axis.text.x  = element_blank(),
+        axis.text.y = element_text(size = 12, angle = 90)
+        legend.position = "none",
+    ) +
+    transition_states(monthID,
+                      transition_length = 20,
+                      state_length = 2,
+                      wrap = F) +             # wrap = F prevents the last frame being an in-between of the last and first months
+    ease_aes('cubic-in-out')
+    animate(plot, 
+            duration = 60, 
+            fps = 20, 
+            detail = 20, 
+            width = 1920, 
+            height = 1080, 
+            end_pause = 90, 
+            renderer = gifski_renderer())
+anim_save("lastFMTop20.gif")
+```
+
+This code produced the animation seen below:
 
 https://github.com/Wlefils/LastFMAnalysis/assets/98787088/451a32b5-018c-4e74-b55e-cb6cb08e922c
 
+## Conclusion
+### Insights
 
 
+
+### External Links
+I want to thank Tom Macnamara for his excellent blog post [here](https://www.r-bloggers.com/2020/04/learning-gganimate-with-the-lastfm-api/), detailing a very similar project that inspired me. I also looked at some posts on Stackoverflow that provided some more details on how to improve the animation of the final chart, which can be found [here](https://stackoverflow.com/questions/52623722/how-does-gganimate-order-an-ordered-bar-time-series/52652394#52652394) and [here](https://stackoverflow.com/questions/53162821/animated-sorted-bar-chart-with-bars-overtaking-each-other/53163549#53163549).
+
+* [Portfolio Homepage](https://wlefils.github.io/)
+* [Resume](https://wlefils.github.io/Will%20LeFils%20Resume.pdf)
+* [LinkedIn Profile](https://www.linkedin.com/in/will-lefils-57b838132/)
