@@ -1,13 +1,11 @@
 # Project Overview
-I love listening to music. I’ve listened to a lot of music over the years, and much of this listening history has been tracked by apps like Spotify. I always get excited for Spotify Year in Review, but I didn’t want to wait until the end of the year. Spotify’s Year in Review is also inherently limited in that it doesn’t allow you to compare different time frames, rather than simply the last year. Thankfully, I’ve also been using Last.fm for several years, and racked up tens of thousands of “scrobbles” (another word for “plays” or “listens”) on that platform. I decided to play around with the **Last.FM API** and turn my personal music listening history into an analytics project.
+I love listening to music. I’ve listened to a lot of music over the years, and much of this listening history has been tracked by apps like Spotify. I always get excited for Spotify's Year Wrapped feature, but I didn’t want to wait until the end of the year to get my results. Spotify Wrapped is also inherently limited in that it doesn’t allow you to compare different time periods, rather than simply the last year (unless you have your previous year's results saved). Thankfully, I’ve also been using Last.fm for several years, and racked up tens of thousands of “scrobbles” (another word for “plays” or “listens”) on that platform. I decided to play around with the **Last.FM API** and turn my personal music listening history into an analytics project.
 
-The end goal of this project was to create an animated bar chart displaying how my top 20 most listened to artists shifted and changed over time. Specifically, I was looking at data from May 2016 (when I created my Last.fm account) until December 2022.
+**The end goal of this project was to create an animated bar chart displaying how my top 20 most listened to artists shifted and changed over time.** Specifically, I was looking at data from May 2016 (when I created my Last.fm account) until December 2022.
 
 ### Tools used:
-* **RStudio** (ggplot2, gganimate, tidyr, dplyr, lubridate, and more)
+* **RStudio** (ggplot2, gganimate, tidyverse, tidyr, dplyr, lubridate, and more)
 * **Excel**
-
-Special thanks to Tom McNamara and his blog post [here](https://www.r-bloggers.com/2020/04/learning-gganimate-with-the-lastfm-api/), which inspired me to start this project.
 
 ### Data Acquisition
 
@@ -27,7 +25,7 @@ write.csv(lastFM, file = "lastFMfromAPI.csv")
 ```
 
 ### Data Cleaning
-Last.fm has a lot of additional data for each scrobble that wasn’t necessary for the scope of this project. To make the dataset a bit easier to work with, I subset it to keep only the specific variables I planned on using: song title, artist name, album title, and the date I listened to the track.
+Last.FM's API provided a lot of additional data for each scrobble that wasn’t necessary for the scope of this project. To make the dataset a bit easier to work with, I subset the dataframe to retain only the specific variables I planned on using: song title, artist name, album title, and the date I listened to each track.
 
 ```R
 # subset to only the relevant data - song, artist, album, date
@@ -101,7 +99,7 @@ lastFMGrouped <- lastFMGrouped[order(lastFMGrouped$monthID),]
 
 ![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/4e43451a-93d2-4c54-9c20-31aa4ab81e7c)
 
-This is when I ran into a major issue. The above iiamge shows a glimpse of the total scrobbles for Carly Rae Jepsen during a several month time period. I didn't listen to CRJ in January or February of 2017 (monthID 13 and 14, respectively). If I created the animated bar chart with the data as it was here, CRJ would be present in December of 2016, but disappear completely for the next two months, before reappearing in March of 2017. That's obviously not what I was looking for. My solution to this involved a multi-step process:
+This is when I ran into a major issue. The above image shows a glimpse of the total scrobbles for Carly Rae Jepsen during a several month time period. I didn't listen to CRJ in January or February of 2017 (monthID 13 and 14, respectively). If I created the animated bar chart with the data as it was here, CRJ would be present in December of 2016, but disappear completely for the next two months, before reappearing in March of 2017. That's obviously not what I was looking for. My solution to this involved a multi-step process:
 
 First, I made a list of each artist, date, and monthID in the existing dataset and combined them to create a new dataframe. The goal here was to make an entry for each artist for every month. Since my data contained 5,330 artists across 83 months, the new dataframe was comprised of 458,990 rows (5,330 * 83).
 
@@ -161,7 +159,7 @@ Note that in the screenshot above the date column is shown as 16-May, 16-Jun, an
 =DATE(2016, C2, 1) 
 ```
 
-This forumla formats the date in YMD format, and prints a date value that is the first day of each month of 2016, based on the monthID. I then copy and pasted this column (as values) in column D (date) to format the dates as needed. I also deleted the F column after I was done to ensure there were no empty or null values when I imported it back into R.
+This formula formats the date in YMD format, and prints a date value that is the first day of each month of 2016, based on the monthID. I then copy and pasted this column (as values) in column D (date) to format the dates as needed. I also deleted the F column after I was done to ensure there were no empty or null values when I imported it back into R.
 
 
 ### Removing Excess Rows
@@ -282,12 +280,21 @@ This code produced the animation seen below:
 https://github.com/Wlefils/LastFMAnalysis/assets/98787088/451a32b5-018c-4e74-b55e-cb6cb08e922c
 
 ## Conclusion
+
 ### Insights
+The biggest takeaway for me from this analysis is how significantly my music taste shifted starting in April 2020. **In March 2020, there were zero non-English artists in my top twenty**. Starting around this time, I began listening to so much K-pop that by August 2020 Twice and Blackpink had become my third and fourth most listened artists of all time, with (G)I-DLE reaching seventh, overcoming over four years of plays for artists like Lana Del Rey and Grimes who had previously been near the top spots. By December of 2020 Blackpink and Twice had supplanted Charli XCX and Pale Waves as my most played artists. Despite the release of a new Pale Waves album causing them to briefly overtake Twice, Twice would quickly leapfrog Blackpink to become my most-played artist beginning in May 2021. At this point, the gap just continued to grow between Twice, the distant second of Blackpink, and all of the other artists. **Non-English artists (specifically Korean and Japanese) comprised three of my top five and eight of my top twenty most played artists by December 2022**.
+
+
+I also thought it was worth comparing what Last.FM's API (i.e., the uncleaned version of the data) lists as my Top 20 Most Played artists when compared to the final output of the bar chart (ensuring that the time periods in question are the same). At first glance, the two are quite similar. The top four artists are all in the same order relative to each other. However, on the bar chart, (G)-IDle is at rank five, while Last.FM places them in sixth. Similarly, "League of Legends" (representing all music produced by Riot Games save K/DA, who are represented with a separate bar) is at rank 8, whereas on Last.FM's rankings this artist is placed at fifteenth. Kinoko Teikoku, a Japanese shoegazing band, ranks thirteenth on the bar chart, but only at 27th according to Last.FM. Taylor Swift ranks sixteenth on Last.FM, but isn't included on my final bar chart (ranking just outside the top 20).
+
+
+![image](https://github.com/Wlefils/LastFMAnalysis/assets/98787088/2302f739-6f07-4bf1-b6ca-d66b9cd98ab4)
+
 
 
 
 ### External Links
-I want to thank Tom Macnamara for his excellent blog post [here](https://www.r-bloggers.com/2020/04/learning-gganimate-with-the-lastfm-api/), detailing a very similar project that inspired me. I also looked at some posts on Stackoverflow that provided some more details on how to improve the animation of the final chart, which can be found [here](https://stackoverflow.com/questions/52623722/how-does-gganimate-order-an-ordered-bar-time-series/52652394#52652394) and [here](https://stackoverflow.com/questions/53162821/animated-sorted-bar-chart-with-bars-overtaking-each-other/53163549#53163549).
+I want to thank Tom MacNamara for his excellent blog post [here](https://www.r-bloggers.com/2020/04/learning-gganimate-with-the-lastfm-api/), detailing a very similar project that inspired me. I also looked at some posts on Stackoverflow that provided some more details on how to improve the animation of the final chart, which can be found [here](https://stackoverflow.com/questions/52623722/how-does-gganimate-order-an-ordered-bar-time-series/52652394#52652394) and [here](https://stackoverflow.com/questions/53162821/animated-sorted-bar-chart-with-bars-overtaking-each-other/53163549#53163549).
 
 * [Portfolio Homepage](https://wlefils.github.io/)
 * [Resume](https://wlefils.github.io/Will%20LeFils%20Resume.pdf)
